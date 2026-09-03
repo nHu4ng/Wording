@@ -8,9 +8,20 @@ import {
   useRef,
   useState,
 } from 'react';
+import { extendedCuratedProfiles } from './extended-curated-profiles';
 
 type StudyState = 'unseen' | 'seen' | 'recognizes' | 'active' | 'mastered';
 type ProfileQuality = 'curated' | 'dictionary' | 'fallback';
+
+type SourceReference = {
+  title?: string;
+  source?: string;
+  examId?: string;
+  createdAt?: string;
+  note: string;
+  occurrenceCount?: number;
+  frequency?: number;
+};
 
 type VocabularyWord = {
   word: string;
@@ -18,6 +29,7 @@ type VocabularyWord = {
   example: string;
   note: string;
   freq: number;
+  sourceRefs?: SourceReference[];
 };
 
 type VocabularyMeta = {
@@ -89,6 +101,8 @@ type Analysis = ExpertProfile & {
   sourceTitle?: string;
   occurrenceCount?: number;
   sourceFrequency?: number;
+  sourceRefs?: SourceReference[];
+  studyState: StudyState;
   priority: number;
   sourceLabel: string;
 };
@@ -654,6 +668,1084 @@ const profileMap: Record<string, ExpertProfile> = {
   },
 };
 
+const curatedOverrides: Record<string, Partial<ExpertProfile>> = {
+  exact: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ɪɡˈzækt/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 78,
+    skills: { reading: 80, listening: 70, task1: 72, task2: 68, speaking: 74 },
+    coreMeaning: '精确的；完全准确的。',
+    definition: 'correct in every detail; precise',
+    register: '中性 / 正式',
+    topics: ['数据', '研究', '科技'],
+    patterns: ['the exact + noun', 'be exact about + noun', 'an exact match/copy'],
+    collocations: [
+      { phrase: 'exact figure', meaning: '确切数字', use: 'Task 1 数据描述' },
+      { phrase: 'exact location', meaning: '确切地点', use: '地图、调查、科技' },
+      { phrase: 'exact date', meaning: '确切日期', use: '历史、计划、事件' },
+    ],
+    distinctions: [
+      {
+        word: 'precise',
+        difference: 'exact 强调结果或细节完全正确；precise 更强调测量、表达或方法严密。',
+        rule: '数字、日期、身份等必须完全正确时用 exact；谈测量或表述的严密性时多用 precise。',
+      },
+    ],
+    pitfalls: [
+      {
+        wrong: 'an exactly number',
+        better: 'an exact number',
+        why: 'exact 是形容词，修饰名词；exactly 是副词。',
+      },
+    ],
+    writingTip: '数据确实已知时可用 exact figure；数字只是估算时用 approximately，不要制造虚假的精确感。',
+    speakingTip: '自然表达为 I cannot remember the exact name/date，而不是刻意堆砌高级词。',
+    recall: '“确切数字”怎么说？',
+    answer: 'exact figure',
+    productionFrame: 'The exact figure was X.',
+  },
+  argue: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈɑːɡjuː/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 86,
+    skills: { reading: 85, listening: 65, task1: 18, task2: 94, speaking: 80 },
+    coreMeaning: '提出理由来主张某事为真或应当发生。',
+    definition: 'to give reasons for believing that something is true or should be done',
+    register: '正式 / 学术中性',
+    topics: ['政府', '教育', '环境', '社会'],
+    patterns: ['argue that + clause', 'argue for/against + noun or -ing', 'It can be argued that + clause'],
+    collocations: [
+      { phrase: 'argue that + clause', meaning: '论证某一观点', use: 'Task 2 立场展开' },
+      { phrase: 'argue for stricter regulation', meaning: '主张更严格监管', use: '政府、环境、媒体' },
+      { phrase: 'argue convincingly that', meaning: '有说服力地论证', use: '评价论点或证据' },
+    ],
+    distinctions: [
+      {
+        word: 'claim',
+        difference: 'claim 只是提出断言；argue 含有给出理由、展开论证的意味。',
+        rule: '作文中若后面会解释原因或证据，用 argue 比 claim 更准确。',
+      },
+    ],
+    pitfalls: [
+      {
+        wrong: 'argue about that public transport should be free',
+        better: 'argue that public transport should be free',
+        why: 'argue about 常指争吵或讨论某话题；提出有理由的主张用 argue that。',
+      },
+    ],
+    writingTip: '用 argue 引出观点后必须给出原因、例子或机制，否则只是换了一个 say。',
+    speakingTip: 'Part 3 可用 I would argue that… 来柔和地表达有依据的个人观点。',
+    recall: '“论证政府应采取行动”怎么说？',
+    answer: 'argue that governments should act',
+    productionFrame: 'It can be argued that X should Y.',
+  },
+  electronic: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/ɪˌlekˈtrɒnɪk/',
+    cefr: 'B2',
+    level: '实用输出词',
+    value: 68,
+    skills: { reading: 75, listening: 64, task1: 35, task2: 66, speaking: 68 },
+    coreMeaning: '使用电子技术的；以电子形式保存或处理的。',
+    definition: 'using electronic technology rather than paper or mechanical processes',
+    register: '中性 / 正式',
+    topics: ['科技', '商务', '通信', '公共服务'],
+    patterns: ['electronic + noun', 'in electronic form', 'electronic rather than paper-based + noun'],
+    collocations: [
+      { phrase: 'electronic payment', meaning: '电子支付', use: '消费、金融、无现金社会' },
+      { phrase: 'electronic records', meaning: '电子记录', use: '医疗、学校、行政' },
+      { phrase: 'electronic device', meaning: '电子设备', use: '教育、日常科技' },
+    ],
+    distinctions: [
+      {
+        word: 'digital',
+        difference: 'electronic 强调电子设备或系统；digital 更强调数字数据、在线形式和数字化处理。',
+        rule: '谈设备、支付终端或电子档案可用 electronic；谈信息、平台或线上服务多用 digital。',
+      },
+    ],
+    pitfalls: [
+      { wrong: 'electronical devices', better: 'electronic devices', why: '标准形容词是 electronic，没有常用的 electronical。' },
+    ],
+    writingTip: '用它时说明具体对象，如 electronic records 或 electronic payment，不要泛泛说 electronic technology。',
+    speakingTip: '可自然谈个人偏好：I prefer electronic tickets because they are easier to store。',
+    recall: '“电子支付”怎么说？',
+    answer: 'electronic payment',
+    productionFrame: 'Electronic records can reduce administrative costs.',
+  },
+  eternal: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/ɪˈtɜːnl/',
+    cefr: 'B2',
+    level: '理解优先词',
+    value: 31,
+    skills: { reading: 54, listening: 28, task1: 5, task2: 18, speaking: 25 },
+    coreMeaning: '永恒的；或主观上似乎永无止境的。',
+    definition: 'lasting forever, or seeming to last for a very long time',
+    register: '文学性 / 正式',
+    topics: ['文学', '时间', '宗教', '文化'],
+    patterns: ['eternal + abstract noun', 'seem/feel eternal', 'an eternal question/problem'],
+    collocations: [
+      { phrase: 'eternal life', meaning: '永生', use: '宗教、文学文本' },
+      { phrase: 'eternal truth', meaning: '永恒真理', use: '哲学、抽象讨论' },
+      { phrase: 'eternal question', meaning: '永恒难题', use: '文化、思想类阅读' },
+    ],
+    distinctions: [
+      { word: 'permanent', difference: 'permanent 指现实中长期或永久不变；eternal 带有“永远”、哲理或文学色彩。', rule: '制度、职位、建筑等实际事物通常用 permanent；哲学或修辞语境才用 eternal。' },
+    ],
+    pitfalls: [
+      { wrong: 'an eternal solution', better: 'a permanent solution', why: '普通实际问题的长期解决方案通常用 permanent；eternal 过于文学化。' },
+    ],
+    writingTip: '不要把它当作 permanent 的“高级替换”；Task 2 通常无需使用。',
+    speakingTip: '可用于轻松夸张：The wait felt eternal，但不宜用于严肃事实判断。',
+    recall: '“等待似乎永无止境”怎么说？',
+    answer: 'The wait felt eternal.',
+    productionFrame: 'The wait felt eternal.',
+  },
+  effort: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈefət/',
+    cefr: 'B1–B2',
+    level: '核心输出词',
+    value: 82,
+    skills: { reading: 76, listening: 72, task1: 22, task2: 83, speaking: 82 },
+    coreMeaning: '为实现目标投入的体力、脑力或尝试。',
+    definition: 'physical or mental energy used to do something',
+    register: '中性 / 正式',
+    topics: ['教育', '工作', '政府', '健康'],
+    patterns: ['make an effort to do sth', 'put effort into sth', 'a concerted effort to do sth'],
+    collocations: [
+      { phrase: 'make an effort', meaning: '作出努力', use: '学习、个人行为、政策' },
+      { phrase: 'put effort into learning', meaning: '投入精力学习', use: '教育、个人经历' },
+      { phrase: 'a concerted effort', meaning: '共同而集中的努力', use: '政府、社区、组织行动' },
+    ],
+    distinctions: [
+      { word: 'attempt', difference: 'effort 强调投入的精力和持续付出；attempt 强调一次尝试或行动。', rule: '谈长期努力用 effort；谈某次试图完成某事用 attempt。' },
+    ],
+    pitfalls: [
+      { wrong: 'do an effort', better: 'make an effort', why: '英语固定搭配是 make an effort。' },
+    ],
+    writingTip: 'concerted effort 适合多个主体共同采取行动的语境，不要用于单个人的普通努力。',
+    speakingTip: '谈学习、运动或习惯改变时，It took a lot of effort 很自然。',
+    recall: '“投入精力学习”怎么说？',
+    answer: 'put effort into learning',
+    productionFrame: 'A concerted effort is needed to X.',
+  },
+  physical: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈfɪzɪkl/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 76,
+    skills: { reading: 78, listening: 65, task1: 38, task2: 76, speaking: 75 },
+    coreMeaning: '与身体、实体物质或身体活动有关的。',
+    definition: 'relating to the body, real objects, or physical activity',
+    register: '中性 / 学术中性',
+    topics: ['健康', '教育', '科技', '工作'],
+    patterns: ['physical + noun', 'physical activity', 'physical and mental + noun'],
+    collocations: [
+      { phrase: 'physical activity', meaning: '身体活动', use: '健康、运动、教育' },
+      { phrase: 'physical health', meaning: '身体健康', use: '医疗、生活方式' },
+      { phrase: 'physical contact', meaning: '身体接触', use: '社交、儿童发展、疫情' },
+    ],
+    distinctions: [
+      { word: 'mental', difference: 'physical 关乎身体、实体或运动；mental 关乎思想、心理和认知。', rule: '讨论身体健康、运动、伤害时用 physical；讨论压力、情绪、思维时用 mental。' },
+    ],
+    pitfalls: [
+      { wrong: 'physical exercise activities', better: 'physical activity / exercise', why: 'exercise 本身已表示身体锻炼，和 physical activity 连用会显得重复。' },
+    ],
+    writingTip: '健康类论证可并列 physical and mental health，但要继续说明具体机制。',
+    speakingTip: '谈日常习惯时，I need more physical activity 比笼统说 exercise 更灵活。',
+    recall: '“身体活动”怎么说？',
+    answer: 'physical activity',
+    productionFrame: 'Regular physical activity can improve X.',
+  },
+  stamp: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/stæmp/',
+    cefr: 'B1–B2',
+    level: '情境输出词',
+    value: 51,
+    skills: { reading: 65, listening: 51, task1: 10, task2: 18, speaking: 57 },
+    coreMeaning: '邮票；印章或盖上的标记；也可指盖章。',
+    definition: 'a small piece of paper for posting mail, or a mark used to show approval',
+    register: '中性',
+    topics: ['邮政', '行政', '商务', '旅行'],
+    patterns: ['put a stamp on + envelope', 'stamp + document + with + mark', 'be stamped with + date/logo'],
+    collocations: [
+      { phrase: 'postage stamp', meaning: '邮票', use: '邮寄、收藏、历史' },
+      { phrase: 'official stamp', meaning: '官方印章', use: '文件、签证、行政' },
+      { phrase: 'stamp a document', meaning: '在文件上盖章', use: '办公室、手续办理' },
+    ],
+    distinctions: [
+      { word: 'seal', difference: 'stamp 指邮票或盖出的印记；seal 可指封口物，也可指正式印章或蜡封。', rule: '寄信用 stamp；文件需盖印或封缄时，按实际语境选择 stamp 或 seal。' },
+    ],
+    pitfalls: [
+      { wrong: 'put a stamp in the envelope', better: 'put a stamp on the envelope', why: '邮票贴在信封表面，用 on。' },
+    ],
+    writingTip: '写作中只在邮政、官方文件等具体语境使用，不要随意套用抽象义。',
+    speakingTip: '谈寄明信片或办理手续时可用：I put a stamp on the envelope。',
+    recall: '“在信封上贴邮票”怎么说？',
+    answer: 'put a stamp on an envelope',
+    productionFrame: 'The document must bear an official stamp.',
+  },
+  ceremony: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈserəməni/',
+    cefr: 'B2',
+    level: '实用输出词',
+    value: 61,
+    skills: { reading: 68, listening: 65, task1: 14, task2: 54, speaking: 78 },
+    coreMeaning: '为纪念或标志重要事件而举行的正式仪式。',
+    definition: 'a formal event held to mark an important occasion',
+    register: '中性 / 正式',
+    topics: ['文化', '教育', '婚礼', '公共生活'],
+    patterns: ['hold a ceremony', 'a ceremony to mark + noun', 'attend/take part in a ceremony'],
+    collocations: [
+      { phrase: 'opening ceremony', meaning: '开幕式', use: '体育、公共活动、学校' },
+      { phrase: 'graduation ceremony', meaning: '毕业典礼', use: '教育、个人经历' },
+      { phrase: 'wedding ceremony', meaning: '婚礼仪式', use: '家庭、文化比较' },
+    ],
+    distinctions: [
+      { word: 'celebration', difference: 'ceremony 强调正式流程和仪式性；celebration 泛指庆祝活动，形式更自由。', rule: '有固定程序、致辞或传统礼节时用 ceremony；一般欢庆活动用 celebration。' },
+    ],
+    pitfalls: [
+      { wrong: 'make a ceremony', better: 'hold a ceremony', why: '举办仪式通常搭配 hold。' },
+    ],
+    writingTip: '讨论文化传承时，说明仪式保存了什么价值或社会联系，而非只说 ceremonies are important。',
+    speakingTip: 'Part 2 可用一场毕业或传统仪式作为具体故事，容易补充细节。',
+    recall: '“毕业典礼”怎么说？',
+    answer: 'graduation ceremony',
+    productionFrame: 'The school held a ceremony to mark X.',
+  },
+  unique: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/juˈniːk/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 75,
+    skills: { reading: 74, listening: 62, task1: 25, task2: 74, speaking: 80 },
+    coreMeaning: '独一无二的；具有其他事物没有的独特特征。',
+    definition: 'being the only one of its kind, or having distinctive qualities',
+    register: '中性 / 正式',
+    topics: ['文化', '旅游', '产品', '身份'],
+    patterns: ['unique to + place/group', 'a unique + noun', 'be unique in + -ing'],
+    collocations: [
+      { phrase: 'unique feature', meaning: '独特特征', use: '地点、产品、制度' },
+      { phrase: 'unique cultural heritage', meaning: '独特文化遗产', use: '文化、旅游、保护' },
+      { phrase: 'unique opportunity', meaning: '难得的独特机会', use: '教育、职业、经历' },
+    ],
+    distinctions: [
+      { word: 'special', difference: 'unique 强调独一无二或明显有别；special 强调重要、特别或有个人意义。', rule: '能说明某地或群体独有时用 unique to；只是“很特别”时用 special 更稳妥。' },
+    ],
+    pitfalls: [
+      { wrong: 'very unique', better: 'unique / truly unique', why: '按严格语义，unique 已表示独一无二；IELTS 中避免 very unique 更安全。' },
+    ],
+    writingTip: '最好补充 unique to 哪个地区或群体，使“独特”成为可验证的具体描述。',
+    speakingTip: '谈家乡时可说 a tradition unique to my hometown，避免泛泛说 very unique。',
+    recall: '“某地独有的传统”怎么说？',
+    answer: 'a tradition unique to a place',
+    productionFrame: 'This tradition is unique to X.',
+  },
+  counterpart: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/ˈkaʊntəpɑːt/',
+    cefr: 'B2',
+    level: '阅读优先，谨慎输出',
+    value: 58,
+    skills: { reading: 78, listening: 44, task1: 38, task2: 60, speaking: 47 },
+    coreMeaning: '在另一国家、机构或群体中具有对应角色或功能的人或事物。',
+    definition: 'a person or thing with the same role or function in another place or group',
+    register: '正式 / 商务',
+    topics: ['政府', '商务', '教育', '国际比较'],
+    patterns: ['the counterpart of + noun', 'a counterpart in + country/sector', 'meet/talk to a counterpart'],
+    collocations: [
+      { phrase: 'foreign counterpart', meaning: '外国对应人员', use: '外交、商务、新闻' },
+      { phrase: 'government counterpart', meaning: '政府对应官员或部门', use: '国际事务、政策' },
+      { phrase: 'counterparts in other countries', meaning: '其他国家的对应对象', use: '跨国比较' },
+    ],
+    distinctions: [
+      { word: 'equivalent', difference: 'counterpart 是另一场景中对应的人、职位或机构；equivalent 泛指价值、功能相等的事物。', rule: '对应的同职人员或部门用 counterpart；可替代的产品、资格或数值用 equivalent。' },
+    ],
+    pitfalls: [
+      { wrong: 'my colleague counterpart', better: 'my counterpart / my counterpart at X', why: 'counterpart 本身已包含“对应同职者”的含义，不必再加 colleague。' },
+    ],
+    writingTip: '仅在两方确有平行角色时使用，不能把它当作任何“相似事物”的替换词。',
+    speakingTip: '工作语境可说 my counterpart in another office，日常对话中通常不必刻意使用。',
+    recall: '“另一国的政府对应官员”怎么说？',
+    answer: 'a government counterpart in another country',
+    productionFrame: 'Their counterparts in X face similar challenges.',
+  },
+  bother: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈbɒðə/',
+    cefr: 'B1–B2',
+    level: '口语核心词',
+    value: 65,
+    skills: { reading: 56, listening: 75, task1: 12, task2: 36, speaking: 85 },
+    coreMeaning: '打扰、使烦恼；也可指费心去做某事。',
+    definition: 'to annoy or worry someone, or to make the effort to do something',
+    register: '非正式 / 中性',
+    topics: ['日常生活', '工作', '服务', '人际'],
+    patterns: ['bother + someone', 'bother to do sth', 'not bother with + noun'],
+    collocations: [
+      { phrase: 'bother someone', meaning: '打扰或烦扰某人', use: '礼貌表达、人际互动' },
+      { phrase: 'bother to do something', meaning: '费心去做某事', use: '日常评价、习惯' },
+      { phrase: 'not bother with something', meaning: '懒得理会或处理某事', use: '口语、个人偏好' },
+    ],
+    distinctions: [
+      { word: 'disturb', difference: 'bother 指烦扰、不便或费心；disturb 更强调打断活动、睡眠或安宁。', rule: '打断睡觉、会议或工作时用 disturb；一般麻烦某人或懒得做时用 bother。' },
+    ],
+    pitfalls: [
+      { wrong: 'I do not bother it', better: 'It does not bother me / I do not bother with it', why: 'bother 通常需要受影响的人作宾语；表示“不想处理”要用 bother with。' },
+    ],
+    writingTip: 'Task 2 中它偏口语且含义模糊；正式论证可改用 inconvenience、concern 或 discourage。',
+    speakingTip: 'Sorry to bother you… 是自然的礼貌开场；I do not bother with… 可描述个人习惯。',
+    recall: '“懒得做某事”怎么说？',
+    answer: 'not bother to do something',
+    productionFrame: 'I do not usually bother to X.',
+  },
+  thrive: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/θraɪv/',
+    cefr: 'C1',
+    level: '高价值输出词',
+    value: 78,
+    skills: { reading: 72, listening: 51, task1: 24, task2: 83, speaking: 65 },
+    coreMeaning: '在有利条件下茁壮成长、蓬勃发展或非常成功。',
+    definition: 'to grow, develop, or be successful, especially under favourable conditions',
+    register: '中性 / 正式',
+    topics: ['经济', '教育', '商业', '社区'],
+    patterns: ['thrive in + environment', 'thrive on + noun', 'help + noun + thrive'],
+    collocations: [
+      { phrase: 'local businesses thrive', meaning: '本地企业蓬勃发展', use: '经济、社区、旅游' },
+      { phrase: 'thrive in a supportive environment', meaning: '在支持性环境中成长良好', use: '教育、儿童发展、职场' },
+      { phrase: 'thrive on competition', meaning: '在竞争中如鱼得水', use: '商业、个人特质' },
+    ],
+    distinctions: [
+      { word: 'survive', difference: 'survive 指在困难中继续存在；thrive 指不仅存在，而且发展得很好。', rule: '强调勉强维持用 survive；强调积极成长、成功或繁荣用 thrive。' },
+    ],
+    pitfalls: [
+      { wrong: 'thrive with competition', better: 'thrive in a competitive environment / thrive on competition', why: '常用搭配是 thrive in + 环境，或 thrive on + 促成因素。' },
+    ],
+    writingTip: '用它时明确谁在什么条件下 thriving，如 small businesses 或 children，避免空泛。',
+    speakingTip: 'I thrive in a structured environment 是自然且有个性的 Part 3 表达。',
+    recall: '“在支持性环境中茁壮成长”怎么说？',
+    answer: 'thrive in a supportive environment',
+    productionFrame: 'Small businesses can thrive when X.',
+  },
+  tradition: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/trəˈdɪʃn/',
+    cefr: 'B1–B2',
+    level: '核心输出词',
+    value: 80,
+    skills: { reading: 80, listening: 69, task1: 16, task2: 82, speaking: 86 },
+    coreMeaning: '代代相传的习俗、信念或做法。',
+    definition: 'a custom or belief passed from one generation to another',
+    register: '中性 / 学术中性',
+    topics: ['文化', '家庭', '教育', '旅游'],
+    patterns: ['a tradition of + -ing', 'pass down a tradition', 'preserve/maintain a tradition'],
+    collocations: [
+      { phrase: 'family tradition', meaning: '家庭传统', use: '口语个人经历、家庭话题' },
+      { phrase: 'long-standing tradition', meaning: '由来已久的传统', use: '文化、历史、社会' },
+      { phrase: 'preserve a tradition', meaning: '保留传统', use: '文化保护、全球化' },
+    ],
+    distinctions: [
+      { word: 'custom', difference: 'tradition 更强调长期传承和文化历史；custom 可指当地、职业或个人的惯常做法。', rule: '涉及世代传承和文化遗产时用 tradition；谈礼仪或普通习惯时可用 custom。' },
+    ],
+    pitfalls: [
+      { wrong: 'a tradition to celebrate the festival', better: 'a tradition of celebrating the festival', why: '描述反复进行的传统活动时，tradition 后通常接 of + -ing。' },
+    ],
+    writingTip: '不要只说 traditions are important；说明它维系身份、家庭联系或文化记忆的方式。',
+    speakingTip: 'Part 2 中用一个家庭传统展开时间、人物和感受，内容会更具体。',
+    recall: '“传承家庭传统”怎么说？',
+    answer: 'pass down a family tradition',
+    productionFrame: 'Many families preserve the tradition of doing X.',
+  },
+  advertisement: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ədˈvɜːtɪsmənt/',
+    cefr: 'B1–B2',
+    level: '核心输出词',
+    value: 77,
+    skills: { reading: 75, listening: 70, task1: 16, task2: 80, speaking: 68 },
+    coreMeaning: '用于推广产品、服务或理念的广告。',
+    definition: 'a notice, picture, or short film used to promote a product, service, or idea',
+    register: '中性 / 正式',
+    topics: ['消费', '媒体', '儿童', '商业'],
+    patterns: ['an advertisement for + product', 'place/run an advertisement', 'be exposed to advertisements'],
+    collocations: [
+      { phrase: 'online advertisement', meaning: '网络广告', use: '社交媒体、数字营销' },
+      { phrase: 'television advertisement', meaning: '电视广告', use: '媒体、儿童、消费' },
+      { phrase: 'misleading advertisement', meaning: '误导性广告', use: '消费者保护、监管' },
+    ],
+    distinctions: [
+      { word: 'commercial', difference: 'advertisement 泛指各种媒介的广告；commercial 常特指电视或广播广告，也可作“商业的”形容词。', rule: '正式写作谈整体广告现象用 advertisement 或 advertising；电视短片可用 commercial。' },
+    ],
+    pitfalls: [
+      { wrong: 'many advertisings', better: 'many advertisements / a great deal of advertising', why: 'advertisement 是可数名词；advertising 是不可数名词，指广告活动或行业。' },
+    ],
+    writingTip: '讨论广告影响时分清 individual advertisements 与 advertising as an industry。',
+    speakingTip: '日常口语中 ad 更自然；正式说明广告类型时再用 advertisement。',
+    recall: '“针对儿童的网络广告”怎么说？',
+    answer: 'online advertisements aimed at children',
+    productionFrame: 'Children are exposed to advertisements for X.',
+  },
+  intend: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ɪnˈtend/',
+    cefr: 'B2',
+    level: '实用输出词',
+    value: 66,
+    skills: { reading: 73, listening: 60, task1: 22, task2: 72, speaking: 72 },
+    coreMeaning: '打算做某事；以某人或某目的为目标。',
+    definition: 'to have a plan or purpose to do something',
+    register: '中性 / 正式',
+    topics: ['教育', '职业', '政策', '计划'],
+    patterns: ['intend to do sth', 'intend + noun + for + noun', 'be intended to do sth'],
+    collocations: [
+      { phrase: 'intend to apply for a course', meaning: '打算申请课程', use: '教育、个人计划' },
+      { phrase: 'be intended for children', meaning: '旨在供儿童使用', use: '产品、政策、服务' },
+      { phrase: 'originally intended to', meaning: '原本打算', use: '计划变化、项目介绍' },
+    ],
+    distinctions: [
+      { word: 'plan', difference: 'intend 强调意图或目的，未必有详细安排；plan 更强调已考虑步骤或安排。', rule: '只有目标或打算时用 intend；已有时间、步骤或安排时用 plan。' },
+    ],
+    pitfalls: [
+      { wrong: 'intend doing something', better: 'intend to do something', why: '表达自己的打算时，intend 后最稳妥的结构是 to + 动词原形。' },
+    ],
+    writingTip: '政策 is intended to… 表示预期目标，不等于已经证明实际效果。',
+    speakingTip: '个人计划中 I intend to… 稍正式；轻松对话里 I am planning to… 更自然。',
+    recall: '“该政策旨在减少污染”怎么说？',
+    answer: 'The policy is intended to reduce pollution.',
+    productionFrame: 'The policy is intended to reduce X.',
+  },
+  administrative: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ədˈmɪnɪstrətɪv/',
+    cefr: 'B2–C1',
+    level: '阅读 / Task 2 词',
+    value: 64,
+    skills: { reading: 77, listening: 45, task1: 37, task2: 69, speaking: 42 },
+    coreMeaning: '与组织、机构或政府的日常行政管理有关的。',
+    definition: 'relating to the management and organization of a business, institution, or government',
+    register: '正式 / 学术',
+    topics: ['政府', '教育', '工作', '公共服务'],
+    patterns: ['administrative + noun', 'administrative duties', 'reduce administrative costs'],
+    collocations: [
+      { phrase: 'administrative costs', meaning: '行政成本', use: '政府、企业、数字化' },
+      { phrase: 'administrative staff', meaning: '行政人员', use: '学校、公司、医院' },
+      { phrase: 'administrative burden', meaning: '行政负担', use: '政策、公共服务、合规' },
+    ],
+    distinctions: [
+      { word: 'managerial', difference: 'administrative 偏手续、记录、组织和支持工作；managerial 偏领导、决策和管理职责。', rule: '谈文书、流程、后台支持时用 administrative；谈领导团队和决策时用 managerial。' },
+    ],
+    pitfalls: [
+      { wrong: 'administrative works', better: 'administrative work / administrative tasks', why: 'work 表示工作内容时通常不可数；具体事项可用 tasks。' },
+    ],
+    writingTip: '适合讨论电子系统如何减少 paperwork、成本或负担；最好说明减少的是哪类流程。',
+    speakingTip: '描述职位时可说 administrative tasks，但日常对话不必强行使用正式词。',
+    recall: '“减少行政成本”怎么说？',
+    answer: 'reduce administrative costs',
+    productionFrame: 'Digital systems can reduce administrative costs.',
+  },
+  client: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈklaɪənt/',
+    cefr: 'B2',
+    level: '实用输出词',
+    value: 68,
+    skills: { reading: 70, listening: 57, task1: 18, task2: 63, speaking: 65 },
+    coreMeaning: '接受专业服务或长期业务服务的个人或机构客户。',
+    definition: 'a person or organization that uses the services of a professional or business',
+    register: '商务 / 正式',
+    topics: ['商业', '法律', '医疗', '服务'],
+    patterns: ['a client of + company', 'provide services to clients', 'meet client needs'],
+    collocations: [
+      { phrase: 'client needs', meaning: '客户需求', use: '服务、设计、咨询' },
+      { phrase: 'client satisfaction', meaning: '客户满意度', use: '商业、服务质量' },
+      { phrase: 'client requirements', meaning: '客户要求', use: '项目、专业服务' },
+    ],
+    distinctions: [
+      { word: 'customer', difference: 'customer 通常购买商品或一般服务；client 通常接受专业、持续或定制化服务。', rule: '律师、设计师、顾问、代理机构服务的对象用 client；商店、餐馆的消费者用 customer。' },
+    ],
+    pitfalls: [
+      { wrong: 'a client in a retail shop', better: 'a customer in a retail shop', why: '普通零售购物者通常称 customer，不称 client。' },
+    ],
+    writingTip: '使用 client satisfaction 前确认语境是专业或持续服务关系，而非普通零售。',
+    speakingTip: '谈工作可用 clients；谈日常购物、咖啡店或超市时多用 customers。',
+    recall: '“满足客户需求”怎么说？',
+    answer: 'meet client needs',
+    productionFrame: 'The firm aims to meet client needs.',
+  },
+  composition: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/ˌkɒmpəˈzɪʃn/',
+    cefr: 'B2',
+    level: '理解优先词（Task 1 扩展）',
+    value: 47,
+    skills: { reading: 77, listening: 40, task1: 48, task2: 35, speaking: 32 },
+    coreMeaning: '构成、组成方式；也可指音乐或书面作品。',
+    definition: 'the way in which something is formed or arranged from its parts',
+    register: '学术 / 正式',
+    topics: ['科学', '数据', '艺术', '人口'],
+    patterns: ['the composition of + noun', 'changes in the composition of + group', 'a musical composition'],
+    collocations: [
+      { phrase: 'chemical composition', meaning: '化学成分', use: '科学、材料、环境' },
+      { phrase: 'age composition of the population', meaning: '人口年龄构成', use: 'Task 1、人口研究' },
+      { phrase: 'musical composition', meaning: '音乐作品', use: '艺术、教育、阅读' },
+    ],
+    distinctions: [
+      { word: 'structure', difference: 'composition 强调由哪些成分及比例构成；structure 强调这些部分如何组织和相互连接。', rule: '谈材料、成分或人口构成时用 composition；谈布局、层级或安排时用 structure。' },
+    ],
+    pitfalls: [
+      { wrong: 'the composition is composed by several elements', better: 'the composition consists of several elements / X is composed of several elements', why: 'composed by 通常表示“由某人创作”；表示构成要用 composed of 或 consists of。' },
+    ],
+    writingTip: 'Task 1 中可用于较正式地概括构成，如 the age composition of the population。',
+    speakingTip: '口语里优先理解“构成”和“音乐作品”两义；除艺术话题外不必强行产出。',
+    recall: '“人口年龄构成”怎么说？',
+    answer: 'the age composition of the population',
+    productionFrame: 'The age composition of the population changed over time.',
+  },
+  status: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈsteɪtəs/',
+    cefr: 'B2',
+    level: '实用输出词',
+    value: 67,
+    skills: { reading: 73, listening: 58, task1: 36, task2: 70, speaking: 62 },
+    coreMeaning: '社会或职业地位；某事当前的状况、进展或法律身份。',
+    definition: 'the social or professional position of someone or the current condition of something',
+    register: '中性 / 正式',
+    topics: ['社会', '工作', '科技', '公共服务'],
+    patterns: ['the status of + noun', 'have/hold + status', 'status as + noun'],
+    collocations: [
+      { phrase: 'social status', meaning: '社会地位', use: '不平等、职业、消费' },
+      { phrase: 'current status', meaning: '当前状态', use: '申请、项目、系统' },
+      { phrase: 'legal status', meaning: '法律地位', use: '移民、权利、政策' },
+    ],
+    distinctions: [
+      { word: 'state', difference: 'status 常指社会地位、官方身份或项目进度；state 泛指某人或某物的整体状态。', rule: '谈法律身份、社会地位、订单或申请进度时用 status；谈一般情况或状态时多用 state。' },
+    ],
+    pitfalls: [
+      { wrong: 'the status of the project is completed', better: 'the project is complete / the project has been completed', why: 'status 描述当前状况；completed 更适合描述项目已被完成这一动作或结果。' },
+    ],
+    writingTip: '不要单独说 status；尽量指出是 social、legal 还是 current status。',
+    speakingTip: '查订单或申请时可说 check the status of an application，非常自然。',
+    recall: '“法律地位”怎么说？',
+    answer: 'legal status',
+    productionFrame: 'The legal status of X remains unclear.',
+  },
+  conversation: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˌkɒnvəˈseɪʃn/',
+    cefr: 'B1–B2',
+    level: '口语核心词',
+    value: 69,
+    skills: { reading: 61, listening: 76, task1: 12, task2: 40, speaking: 90 },
+    coreMeaning: '两人或多人之间交换想法和信息的交谈。',
+    definition: 'a talk between two or more people in which ideas and information are exchanged',
+    register: '中性',
+    topics: ['人际', '工作', '教育', '科技'],
+    patterns: ['have a conversation with + person', 'a conversation about + topic', 'start/keep up a conversation'],
+    collocations: [
+      { phrase: 'have a conversation', meaning: '进行交谈', use: '日常、工作、人际' },
+      { phrase: 'meaningful conversation', meaning: '有意义的交谈', use: '人际关系、科技影响' },
+      { phrase: 'strike up a conversation', meaning: '主动攀谈', use: '陌生人、旅行、社交' },
+    ],
+    distinctions: [
+      { word: 'discussion', difference: 'conversation 是较随意的交谈；discussion 更聚焦某议题、分析或决定。', rule: '闲聊和人际互动用 conversation；解决问题或正式讨论用 discussion。' },
+    ],
+    pitfalls: [
+      { wrong: 'make a conversation', better: 'have a conversation / start a conversation', why: 'conversation 常与 have、start、strike up 搭配，不用 make。' },
+    ],
+    writingTip: 'Task 2 中若强调正式公共交流，discussion 或 dialogue 往往比 conversation 更准确。',
+    speakingTip: '用 strike up a conversation 描述旅行或社交经历，比 start talking 更生动。',
+    recall: '“与陌生人攀谈”怎么说？',
+    answer: 'strike up a conversation with a stranger',
+    productionFrame: 'I often strike up a conversation with X.',
+  },
+  swap: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/swɒp/',
+    cefr: 'B1–B2',
+    level: '口语实用词',
+    value: 55,
+    skills: { reading: 57, listening: 66, task1: 12, task2: 28, speaking: 75 },
+    coreMeaning: '交换两样东西；用一个事物替换另一个。',
+    definition: 'to exchange one thing for another, or replace one thing with another',
+    register: '非正式 / 中性',
+    topics: ['消费', '日常生活', '环保', '工作'],
+    patterns: ['swap A for B', 'swap A with B', 'swap seats/clothes'],
+    collocations: [
+      { phrase: 'swap seats', meaning: '交换座位', use: '旅行、日常礼貌表达' },
+      { phrase: 'swap clothes', meaning: '交换衣物', use: '消费、循环利用、朋友间' },
+      { phrase: 'swap A for B', meaning: '用 A 换成 B', use: '习惯、选择、环保' },
+    ],
+    distinctions: [
+      { word: 'exchange', difference: 'swap 较口语，常指直接互换或替换；exchange 更正式，也可用于信息、货币和国际交流。', rule: '日常换座位、换衣物或换选择用 swap；正式系统或抽象交流多用 exchange。' },
+    ],
+    pitfalls: [
+      { wrong: 'swap A to B', better: 'swap A for B', why: '表示用 A 换取或替代 B 时，常用介词 for。' },
+    ],
+    writingTip: '正式 Task 2 中谈替代方案时通常用 replace 或 exchange；swap 更适合具体例子。',
+    speakingTip: 'Could we swap seats? 是非常自然的旅行和日常表达。',
+    recall: '“把纸质票换成电子票”怎么说？',
+    answer: 'swap paper tickets for electronic tickets',
+    productionFrame: 'Many people have swapped X for Y.',
+  },
+  remind: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/rɪˈmaɪnd/',
+    cefr: 'B1–B2',
+    level: '核心输出词',
+    value: 75,
+    skills: { reading: 65, listening: 75, task1: 12, task2: 54, speaking: 84 },
+    coreMeaning: '提醒某人做事；使某人想起某人或某物。',
+    definition: 'to make someone remember something or think of a similar person or thing',
+    register: '中性',
+    topics: ['日常生活', '教育', '工作', '科技'],
+    patterns: ['remind + person + to do sth', 'remind + person + that + clause', 'remind + person + of + noun'],
+    collocations: [
+      { phrase: 'remind someone to do something', meaning: '提醒某人做某事', use: '计划、责任、日常安排' },
+      { phrase: 'remind someone of an appointment', meaning: '提醒某人预约或约会', use: '工作、医疗、日程' },
+      { phrase: 'remind someone that + clause', meaning: '提醒某人某事', use: '说明、通知、规则' },
+    ],
+    distinctions: [
+      { word: 'remember', difference: 'remember 表示自己想起或记得；remind 表示外部的人、事物或系统促使某人想起。', rule: '自己回忆用 remember；请别人或系统发出提示用 remind。' },
+    ],
+    pitfalls: [
+      { wrong: 'remind me to the meeting', better: 'remind me about the meeting / remind me to attend the meeting', why: 'remind 后接名词时用 about/of；接动作时用 to + 动词原形。' },
+    ],
+    writingTip: '科技话题中写 apps can remind users to… 时，要写清提醒的具体行为。',
+    speakingTip: 'Please remind me to… 是实用的日常表达，也可用来谈自己容易忘事。',
+    recall: '“提醒我明天打电话”怎么说？',
+    answer: 'remind me to call tomorrow',
+    productionFrame: 'Please remind me to X.',
+  },
+  valuable: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈvæljuəbl/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 76,
+    skills: { reading: 72, listening: 61, task1: 26, task2: 78, speaking: 78 },
+    coreMeaning: '有金钱价值的；或非常有用、重要、值得珍视的。',
+    definition: 'worth a lot of money or very useful or important',
+    register: '中性 / 正式',
+    topics: ['教育', '工作', '科技', '资源'],
+    patterns: ['valuable + noun', 'valuable for + noun/-ing', 'find/consider + noun + valuable'],
+    collocations: [
+      { phrase: 'valuable experience', meaning: '宝贵经验', use: '教育、工作、个人成长' },
+      { phrase: 'valuable resource', meaning: '宝贵资源', use: '教育、环境、公共服务' },
+      { phrase: 'valuable information', meaning: '有价值的信息', use: '研究、科技、决策' },
+    ],
+    distinctions: [
+      { word: 'useful', difference: 'useful 强调实际用途；valuable 强调重要价值、显著益处或金钱价值。', rule: '普通实用功能用 useful；经验、信息、资源或昂贵物品的显著价值用 valuable。' },
+    ],
+    pitfalls: [
+      { wrong: 'valuable to do something', better: 'valuable for doing something / valuable to someone', why: 'valuable 后谈用途常接 for + -ing；谈受益对象可接 to + 人。' },
+    ],
+    writingTip: '不要空泛地说 valuable；说明它提供了什么信息、技能或长期益处。',
+    speakingTip: '谈实习、旅行或建议时，valuable experience 和 valuable advice 都很自然。',
+    recall: '“宝贵的工作经验”怎么说？',
+    answer: 'valuable work experience',
+    productionFrame: 'X provides valuable information about Y.',
+  },
+};
+
+Object.assign(curatedOverrides, {
+  complex: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈkɒmpleks/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 86,
+    skills: { reading: 90, listening: 76, task1: 70, task2: 88, speaking: 76 },
+    coreMeaning: '复杂的；由多个相互关联部分构成，因而不易理解或处理。',
+    definition: 'having many connected parts and therefore difficult to understand or deal with',
+    register: '中性 / 学术',
+    topics: ['教育', '科技', '社会问题'],
+    patterns: ['a complex + noun', 'be too complex for + noun', 'a complex relationship between A and B'],
+    collocations: [
+      { phrase: 'a complex issue', meaning: '复杂议题', use: 'Task 2 论证' },
+      { phrase: 'a complex system', meaning: '复杂系统', use: '科技、社会' },
+      { phrase: 'a complex relationship between A and B', meaning: 'A 与 B 的复杂关系', use: '研究分析' },
+    ],
+    distinctions: [
+      { word: 'complicated', difference: 'complex 强调多部分彼此关联；complicated 只强调难懂或难操作。', rule: '系统、关系、过程常用 complex；说明或任务难处理可用 complicated。' },
+    ],
+    pitfalls: [
+      { wrong: 'a complexity problem', better: 'a complex problem', why: 'complexity 是名词；修饰 problem 要用形容词 complex。' },
+    ],
+    writingTip: '不要只贴上 complex 标签；接着说明涉及哪些因素，论证才完整。',
+    speakingTip: '可用 because 补原因：It is complex because it involves several groups.',
+    recall: '“复杂的社会问题”怎么说？',
+    answer: 'a complex social issue',
+    productionFrame: 'X is a complex issue because it involves Y.',
+  },
+  opposite: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈɒpəzɪt/',
+    cefr: 'B1',
+    level: '高频基础词',
+    value: 70,
+    skills: { reading: 86, listening: 76, task1: 58, task2: 67, speaking: 72 },
+    coreMeaning: '相反的；相对立的一方或结果。',
+    definition: 'completely different from something, or a thing that is completely different',
+    register: '中性',
+    topics: ['比较', '教育', '社会'],
+    patterns: ['the opposite of + noun / -ing', 'be opposite to + noun', 'have the opposite effect'],
+    collocations: [
+      { phrase: 'the exact opposite', meaning: '恰恰相反', use: '比较、反驳' },
+      { phrase: 'the opposite direction', meaning: '相反方向', use: '位置、趋势' },
+      { phrase: 'the opposite effect', meaning: '相反效果', use: 'Task 2 因果' },
+    ],
+    distinctions: [
+      { word: 'different', difference: 'different 只表示不同；opposite 表示处在直接相反的两端。', rule: 'increase 与 decrease 这类反向概念用 opposite，不要泛用 different。' },
+    ],
+    pitfalls: [
+      { wrong: 'the opposite with my view', better: 'the opposite of my view / an opposite view', why: 'opposite 常接 of 表示“……的对立面”，或接 to 表示“与……相反”。' },
+    ],
+    writingTip: '用于比较政策结果时，the opposite effect 比 very different 更精确。',
+    speakingTip: '日常回答中 the exact opposite 是自然的强调表达。',
+    recall: '“产生相反效果”怎么说？',
+    answer: 'have the opposite effect',
+    productionFrame: 'This policy may have the opposite effect: Y.',
+  },
+  however: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/haʊˈevə(r)/',
+    cefr: 'B1',
+    level: '核心连接词',
+    value: 88,
+    skills: { reading: 90, listening: 74, task1: 84, task2: 96, speaking: 63 },
+    coreMeaning: '然而；引出与前文形成对比或限制的完整观点。',
+    definition: 'despite this; used to introduce a statement that contrasts with what was said before',
+    register: '正式 / 书面',
+    topics: ['议论文', '图表', '比较'],
+    patterns: ['However, + independent clause', 'independent clause; however, + independent clause'],
+    collocations: [
+      { phrase: 'however, this does not mean that ...', meaning: '然而，这并不意味着……', use: '反驳、让步' },
+      { phrase: 'however, it should be noted that ...', meaning: '不过，应注意……', use: '限定观点' },
+      { phrase: 'however, there are limitations', meaning: '不过，仍有限制', use: '评价方案' },
+    ],
+    distinctions: [
+      { word: 'but', difference: 'but 是并列连词，直接连接成分或分句；however 是连接副词，通常连接两个完整句。', rule: '不要把 But however 连用；用其中一个即可。' },
+    ],
+    pitfalls: [
+      { wrong: 'But however, this is expensive.', better: 'However, this is expensive. / But this is expensive.', why: '两者都表达转折，叠加会重复且不自然。' },
+    ],
+    writingTip: '每次转折都要有明确逻辑：先承认一点，再说明限制或反面结果。',
+    speakingTip: '口语里 but 更自然；however 适合较审慎、结构化的 Part 3 回答。',
+    recall: '改错：But however, public transport is costly.',
+    answer: 'However, public transport is costly.',
+    productionFrame: 'X has clear benefits. However, it can also Y.',
+  },
+  multinational: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˌmʌltiˈnæʃənəl/',
+    cefr: 'B2',
+    level: '进阶输出词',
+    value: 76,
+    skills: { reading: 83, listening: 63, task1: 45, task2: 84, speaking: 66 },
+    coreMeaning: '跨国的；在多个国家运营或由多个国籍的人构成的。',
+    definition: 'involving or operating in several different countries',
+    register: '正式 / 商业',
+    topics: ['全球化', '商业', '就业'],
+    patterns: ['a multinational + company / corporation', 'a multinational operating in + place', 'work for a multinational'],
+    collocations: [
+      { phrase: 'a multinational corporation', meaning: '跨国公司', use: '全球化、商业' },
+      { phrase: 'multinational operations', meaning: '跨国运营', use: '企业话题' },
+      { phrase: 'a multinational workforce', meaning: '多国籍劳动力', use: '职场、迁移' },
+    ],
+    distinctions: [
+      { word: 'international', difference: 'international 泛指国际间的；multinational 特别指企业或团队跨多个国家开展活动。', rule: '说明公司在多国有业务时用 multinational company。' },
+    ],
+    pitfalls: [
+      { wrong: 'A multinational companies can ...', better: 'Multinational companies can ... / A multinational company can ...', why: 'multinational 不改变名词的单复数；冠词和名词形式仍须一致。' },
+    ],
+    writingTip: '讨论跨国公司时，补充就业、税收或本地企业竞争等具体影响。',
+    speakingTip: '谈职业规划可说 work for a multinational company，但要给出原因。',
+    recall: '“跨国公司创造就业”怎么说？',
+    answer: 'Multinational companies create jobs.',
+    productionFrame: 'Multinational companies can create jobs, but may also Y.',
+  },
+  prohibit: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/prəˈhɪbɪt/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 86,
+    skills: { reading: 84, listening: 65, task1: 42, task2: 93, speaking: 62 },
+    coreMeaning: '禁止；通过法律、规定或权威命令阻止某事发生。',
+    definition: 'to officially prevent something from being done, especially by law',
+    register: '正式 / 法规',
+    topics: ['法律', '公共健康', '环境'],
+    patterns: ['prohibit + noun / -ing', 'prohibit sb from + -ing', 'be prohibited by law'],
+    collocations: [
+      { phrase: 'prohibit smoking in public places', meaning: '禁止在公共场所吸烟', use: '健康政策' },
+      { phrase: 'prohibit the sale of X', meaning: '禁止销售 X', use: '监管、消费' },
+      { phrase: 'be strictly prohibited', meaning: '被严格禁止', use: '规则、法规' },
+    ],
+    distinctions: [
+      { word: 'ban', difference: 'ban 可作名词或动词；prohibit 是更正式的动词，常见于法律和规章。', rule: '用名词说 a ban on X；用动词说 prohibit X / prohibit doing X。' },
+    ],
+    pitfalls: [
+      { wrong: 'prohibit people to smoke', better: 'prohibit people from smoking', why: 'prohibit 后接人时使用 from + -ing。' },
+    ],
+    writingTip: '主张禁止前，说明对象、场景和执法可行性，避免泛泛而谈。',
+    speakingTip: 'Part 3 可说 smoking should be prohibited in enclosed public spaces。',
+    recall: '“禁止人们酒后驾车”怎么说？',
+    answer: 'prohibit people from driving after drinking',
+    productionFrame: 'Authorities could prohibit X in Y to reduce Z.',
+  },
+  spouse: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/spaʊs/',
+    cefr: 'B2',
+    level: '理解优先词',
+    value: 61,
+    skills: { reading: 80, listening: 62, task1: 48, task2: 55, speaking: 48 },
+    coreMeaning: '配偶；已婚者的丈夫或妻子，性别中性且较正式。',
+    definition: 'a husband or wife',
+    register: '正式 / 法律 / 调查',
+    topics: ['家庭', '法律', '人口'],
+    patterns: ['a spouse’s + noun', 'husband or wife / spouse', 'a former / surviving spouse'],
+    collocations: [
+      { phrase: 'a spouse’s income', meaning: '配偶收入', use: '家庭、调查' },
+      { phrase: 'a former spouse', meaning: '前配偶', use: '婚姻、法律' },
+      { phrase: 'a surviving spouse', meaning: '在世配偶', use: '法律、保险' },
+    ],
+    distinctions: [
+      { word: 'partner', difference: 'spouse 明确指法律婚姻中的配偶；partner 可指未婚伴侣，也可指商业伙伴。', rule: '只有婚姻身份相关时才用 spouse。' },
+    ],
+    pitfalls: [
+      { wrong: 'my spouse are ...', better: 'my spouse is ...', why: 'spouse 是单数可数名词；复数才是 spouses。' },
+    ],
+    writingTip: '主要作为法律、人口或问卷语境的理解词；普通家庭话题不必刻意替换 husband 或 wife。',
+    speakingTip: '谈个人生活时 husband、wife 或 partner 往往更自然。',
+    recall: '“配偶收入”怎么说？',
+    answer: 'a spouse’s income',
+    productionFrame: 'The form asks about a respondent’s spouse and household income.',
+  },
+  issue: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈɪʃuː/',
+    cefr: 'B2',
+    level: '多义核心词',
+    value: 89,
+    skills: { reading: 90, listening: 78, task1: 58, task2: 96, speaking: 83 },
+    coreMeaning: '问题、议题；IELTS 中常指值得讨论或需要处理的公共问题。',
+    definition: 'an important subject or problem for discussion',
+    register: '中性 / 正式',
+    topics: ['社会', '住房', '公共健康'],
+    patterns: ['the issue of + noun / -ing', 'an issue with + noun', 'address an issue'],
+    collocations: [
+      { phrase: 'a pressing issue', meaning: '紧迫问题', use: 'Task 2 开头' },
+      { phrase: 'address the issue', meaning: '处理该问题', use: '政策、对策' },
+      { phrase: 'the issue of housing affordability', meaning: '住房负担能力问题', use: '城市、社会' },
+    ],
+    distinctions: [
+      { word: 'problem', difference: 'issue 可指中性的讨论议题，也可指问题；problem 更明确表示负面困难。', rule: '讨论争议或公共议题用 issue；强调损害和待解决困难用 problem。' },
+    ],
+    pitfalls: [
+      { wrong: 'discuss about this issue', better: 'discuss this issue', why: 'discuss 是及物动词，后面不加 about。' },
+    ],
+    writingTip: '提出 issue 后立刻明确其成因、影响或立场，避免空泛重复。',
+    speakingTip: 'There is an issue with ... 是自然的口语问题说明框架。',
+    recall: '“处理一个紧迫问题”怎么说？',
+    answer: 'address a pressing issue',
+    productionFrame: 'One pressing issue is that X.',
+  },
+  formal: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈfɔːməl/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 77,
+    skills: { reading: 76, listening: 66, task1: 63, task2: 81, speaking: 74 },
+    coreMeaning: '正式的；符合严肃、职业或制度化场合规范的。',
+    definition: 'suitable for serious or official occasions',
+    register: '中性 / 正式',
+    topics: ['教育', '职场', '沟通'],
+    patterns: ['formal + noun', 'in a formal manner', 'be more formal than + noun'],
+    collocations: [
+      { phrase: 'formal education', meaning: '正规教育', use: '教育话题' },
+      { phrase: 'formal training', meaning: '正式培训', use: '就业、技能' },
+      { phrase: 'a formal agreement', meaning: '正式协议', use: '商业、法律' },
+    ],
+    distinctions: [
+      { word: 'official', difference: 'official 强调由政府或权威机构认可；formal 强调场合、风格或程序的正式性。', rule: '服装、语言、场合常用 formal；政府声明常用 official。' },
+    ],
+    pitfalls: [
+      { wrong: 'speak formal', better: 'speak formally / use formal language', why: 'formal 是形容词；修饰 speak 要用副词 formally。' },
+    ],
+    writingTip: '正式写作不等于生僻：优先做到清晰、准确，并避免过多口语缩略形式。',
+    speakingTip: '描述活动、服装或沟通风格时，formal 是很自然的词。',
+    recall: '“正规教育”怎么说？',
+    answer: 'formal education',
+    productionFrame: 'Formal education should be complemented by practical experience.',
+  },
+  plastic: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈplæstɪk/',
+    cefr: 'B1',
+    level: '核心输出词',
+    value: 72,
+    skills: { reading: 79, listening: 73, task1: 52, task2: 83, speaking: 78 },
+    coreMeaning: '塑料；一种人工合成材料，常用于环境和消费议题。',
+    definition: 'a light, strong artificial material that can be made into many different shapes',
+    register: '中性',
+    topics: ['环境', '消费', '城市生活'],
+    patterns: ['plastic + noun', 'be made of plastic', 'reduce the use of plastic'],
+    collocations: [
+      { phrase: 'single-use plastic', meaning: '一次性塑料制品', use: '环境政策' },
+      { phrase: 'plastic waste', meaning: '塑料废弃物', use: '污染、回收' },
+      { phrase: 'recycle plastic', meaning: '回收塑料', use: '日常环保' },
+    ],
+    distinctions: [
+      { word: 'plastics', difference: 'plastic 通常是不可数材料；plastics 可指不同种类的塑料或塑料制品。', rule: '泛指材料用 plastic；强调类别或制品时才考虑 plastics。' },
+    ],
+    pitfalls: [
+      { wrong: 'many plastic', better: 'much plastic / many plastic items', why: 'plastic 作材料时通常不可数；可数的是 plastic items 或 bottles。' },
+    ],
+    writingTip: '环境题中把问题和措施连起来：reduce single-use plastic 并改善收集与回收。',
+    speakingTip: '可从自己的购物习惯举例，避免只喊环保口号。',
+    recall: '“减少一次性塑料”怎么说？',
+    answer: 'reduce single-use plastic',
+    productionFrame: 'Reducing single-use plastic would cut X.',
+  },
+  survey: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈsɜːveɪ/ n.; /səˈveɪ/ v.',
+    cefr: 'B2',
+    level: 'Task 1 实用词',
+    value: 85,
+    skills: { reading: 87, listening: 68, task1: 91, task2: 77, speaking: 65 },
+    coreMeaning: '调查、问卷研究；也可作动词表示调查或审视。',
+    definition: 'a set of questions or an investigation used to collect information about people or opinions',
+    register: '中性 / 研究',
+    topics: ['研究', '教育', '消费'],
+    patterns: ['conduct a survey of / on + noun', 'a survey of + group', 'be surveyed about + topic'],
+    collocations: [
+      { phrase: 'conduct a survey', meaning: '开展调查', use: '研究、报告' },
+      { phrase: 'a nationwide survey', meaning: '全国性调查', use: '社会议题' },
+      { phrase: 'survey respondents', meaning: '调查受访者', use: '数据描述' },
+    ],
+    distinctions: [
+      { word: 'questionnaire', difference: 'questionnaire 是题目表；survey 是完整调查过程或其结果。', rule: '报告研究结果用 survey，不要把问卷本身等同于调查。' },
+    ],
+    pitfalls: [
+      { wrong: 'make a survey', better: 'conduct / carry out a survey', why: '英语中进行调查通常搭配 conduct 或 carry out。' },
+    ],
+    writingTip: '引用调查时交代样本或来源，并避免把相关性直接写成因果关系。',
+    speakingTip: '描述学校或消费者调查时，a survey found that ... 很自然。',
+    recall: '“一项全国性调查发现……”怎么说？',
+    answer: 'A nationwide survey found that ...',
+    productionFrame: 'A recent survey of X found that Y.',
+  },
+  ritual: {
+    quality: 'curated',
+    confidence: 5,
+    ipaUk: '/ˈrɪtʃuəl/',
+    cefr: 'C1',
+    level: '理解优先词',
+    value: 59,
+    skills: { reading: 84, listening: 57, task1: 40, task2: 60, speaking: 45 },
+    coreMeaning: '仪式；具有固定步骤和象征意义的宗教、文化或社会活动。',
+    definition: 'a set of fixed actions performed as part of a religious, cultural, or social ceremony',
+    register: '中性 / 文化研究',
+    topics: ['文化', '传统', '宗教'],
+    patterns: ['a religious / cultural ritual', 'perform a ritual', 'a ritual associated with + noun'],
+    collocations: [
+      { phrase: 'a religious ritual', meaning: '宗教仪式', use: '文化、宗教' },
+      { phrase: 'a traditional ritual', meaning: '传统仪式', use: '节庆、习俗' },
+      { phrase: 'perform a ritual', meaning: '举行仪式', use: '文化描述' },
+    ],
+    distinctions: [
+      { word: 'ceremony', difference: 'ceremony 是一个正式活动；ritual 是其中具有固定象征意义的动作或程序。', rule: '描述具体重复做法用 ritual；描述整场典礼用 ceremony。' },
+    ],
+    pitfalls: [
+      { wrong: 'a ritual for celebrate the festival', better: 'a ritual for celebrating the festival', why: 'for 后面接名词或 -ing 形式。' },
+    ],
+    writingTip: '理解优先；如用于文化题，要说明仪式的具体做法和它维系的意义。',
+    speakingTip: '不确定 ritual 是否准确时，日常口语优先用 tradition 或 custom。',
+    recall: '“宗教仪式”怎么说？',
+    answer: 'a religious ritual',
+    productionFrame: 'The ritual is performed to mark X.',
+  },
+  institution: {
+    quality: 'curated',
+    confidence: 4,
+    ipaUk: '/ˌɪnstɪˈtjuːʃn/',
+    cefr: 'B2',
+    level: '核心输出词',
+    value: 80,
+    skills: { reading: 88, listening: 68, task1: 51, task2: 90, speaking: 64 },
+    coreMeaning: '机构；也可指社会中稳定、被广泛认可的制度。',
+    definition: 'a large important organization, such as a university, bank, or government body',
+    register: '正式 / 学术',
+    topics: ['教育', '政府', '金融'],
+    patterns: ['a public / private institution', 'an educational / financial institution', 'trust in institutions'],
+    collocations: [
+      { phrase: 'public institutions', meaning: '公共机构', use: '政府、公共服务' },
+      { phrase: 'an educational institution', meaning: '教育机构', use: '教育话题' },
+      { phrase: 'a financial institution', meaning: '金融机构', use: '经济、银行' },
+    ],
+    distinctions: [
+      { word: 'organization', difference: 'organization 可指任何有组织的团体；institution 强调历史较久、正式且社会认可的机构或制度。', rule: '学校、法院、银行等可用 institution；小型项目团队通常用 organization。' },
+    ],
+    pitfalls: [
+      { wrong: 'an institution for educate children', better: 'an educational institution / an institution for educating children', why: 'for 后接 -ing；educational institution 是最自然的固定表达。' },
+    ],
+    writingTip: '用于讨论制度责任时很有力，但不要用它泛指任何公司或小团体。',
+    speakingTip: '谈大学、银行或公共服务时可自然使用 institution。',
+    recall: '“教育机构”怎么说？',
+    answer: 'an educational institution',
+    productionFrame: 'Public institutions should ensure equal access to Y.',
+  },
+});
+
+Object.assign(curatedOverrides, extendedCuratedProfiles);
+
 const stateOptions: Array<{ value: StudyState; label: string; hint: string }> = [
   { value: 'unseen', label: '未学习', hint: '先建立核心义和搭配' },
   { value: 'seen', label: '看过', hint: '需要巩固词义' },
@@ -673,6 +1765,11 @@ const scoreLabels: Array<{ key: keyof SkillScores; label: string }> = [
 function parseOccurrence(note: string) {
   const match = note.match(/本篇出现\s*(\d+)\s*次/);
   return match ? Number(match[1]) : undefined;
+}
+
+function parseSourceTitle(note: string) {
+  const match = note.match(/阅读提取：(.+?)；本篇出现/);
+  return match ? match[1] : undefined;
 }
 
 function cleanMeaning(value: string) {
@@ -774,7 +1871,10 @@ function fallbackProfile(word: string, originalMeaning: string): ExpertProfile {
 }
 
 function profileFor(word: string, meaning: string) {
-  return profileMap[word.toLowerCase()] || fallbackProfile(word, meaning);
+  const normalized = word.toLowerCase();
+  const baseProfile = profileMap[normalized] || fallbackProfile(word, meaning);
+  const override = curatedOverrides[normalized];
+  return override ? ({ ...baseProfile, ...override } as ExpertProfile) : baseProfile;
 }
 
 function priorityFor(
@@ -796,6 +1896,30 @@ function priorityFor(
   );
 }
 
+function sourceReferencesFor(
+  word: VocabularyWord | undefined,
+  fallbackTitle?: string,
+) {
+  if (!word) return [] as SourceReference[];
+  if (word.sourceRefs?.length) return word.sourceRefs;
+  return [
+    {
+      title: parseSourceTitle(word.note) || fallbackTitle,
+      note: word.note,
+      occurrenceCount: parseOccurrence(word.note),
+      frequency: Math.round(word.freq * 100),
+    },
+  ];
+}
+
+function primarySourceReference(references: SourceReference[]) {
+  return references.reduce<SourceReference | undefined>(
+    (best, candidate) =>
+      (candidate.frequency ?? -1) > (best?.frequency ?? -1) ? candidate : best,
+    undefined,
+  );
+}
+
 function buildAnalysis(
   word: VocabularyWord | undefined,
   profile: ExpertProfile,
@@ -804,13 +1928,17 @@ function buildAnalysis(
   sourceLabel = '单词查询',
 ): Analysis {
   const lemma = word?.word || '';
+  const sourceRefs = sourceReferencesFor(word, sourceTitle);
+  const primarySource = primarySourceReference(sourceRefs);
   return {
     ...profile,
     word: lemma,
     sourceWord: word,
-    sourceTitle,
-    occurrenceCount: word ? parseOccurrence(word.note) : undefined,
-    sourceFrequency: word ? Math.round(word.freq * 100) : undefined,
+    sourceTitle: primarySource?.title || sourceTitle,
+    occurrenceCount: primarySource?.occurrenceCount,
+    sourceFrequency: primarySource?.frequency,
+    sourceRefs: sourceRefs.length ? sourceRefs : undefined,
+    studyState,
     priority: priorityFor(word, profile, studyState),
     sourceLabel,
   };
@@ -827,19 +1955,54 @@ function normalizeDocument(value: unknown): VocabularyDocument | null {
         typeof entry.word === 'string' &&
         typeof entry.meaning === 'string',
     )
-    .map((entry) => ({
-      word: entry.word.trim().toLowerCase(),
-      meaning: entry.meaning,
-      example: typeof entry.example === 'string' ? entry.example : '',
-      note: typeof entry.note === 'string' ? entry.note : '',
-      freq: typeof entry.freq === 'number' ? entry.freq : 0.5,
-    }))
+    .map((entry) => {
+      const note = typeof entry.note === 'string' ? entry.note : '';
+      const freq = typeof entry.freq === 'number' ? entry.freq : 0.5;
+      return {
+        word: entry.word.trim().toLowerCase(),
+        meaning: entry.meaning,
+        example: typeof entry.example === 'string' ? entry.example : '',
+        note,
+        freq,
+        sourceRefs: [
+          {
+            title: document.meta?.title || parseSourceTitle(note),
+            source: document.meta?.source,
+            examId: document.meta?.examId,
+            createdAt: document.meta?.createdAt,
+            note,
+            occurrenceCount: parseOccurrence(note),
+            frequency: Math.round(freq * 100),
+          },
+        ],
+      };
+    })
     .filter((entry) => entry.word);
   if (!words.length) return null;
   return {
     words: Array.from(new Map(words.map((entry) => [entry.word, entry])).values()),
     meta: document.meta || {},
   };
+}
+
+function mergeVocabularyWords(documents: VocabularyDocument[]) {
+  const merged = new Map<string, VocabularyWord>();
+  documents.flatMap((document) => document.words).forEach((word) => {
+    const existing = merged.get(word.word);
+    if (!existing) {
+      merged.set(word.word, word);
+      return;
+    }
+    const preferred = word.freq > existing.freq ? word : existing;
+    merged.set(word.word, {
+      ...preferred,
+      sourceRefs: [
+        ...sourceReferencesFor(existing),
+        ...sourceReferencesFor(word),
+      ],
+    });
+  });
+  return Array.from(merged.values());
 }
 
 function profileFromDictionary(word: string, entries: DictionaryEntry[]): ExpertProfile {
@@ -901,7 +2064,7 @@ function qualityDescription(quality: ProfileQuality) {
 function sourceExampleLabel(example: string) {
   if (!example) return '未提供原始例句';
   if (/IELTS learners often encounter/i.test(example)) return '系统泛化例句';
-  return '来源例句';
+  return '来源文件提供的例句（未核验）';
 }
 
 export default function Home() {
@@ -1004,6 +2167,7 @@ export default function Home() {
     return {
       priority: analyses.filter((analysis) => analysis.priority >= 74).length,
       output: analyses.filter((analysis) => analysis.skills.task2 >= 78).length,
+      curated: analyses.filter((analysis) => analysis.quality === 'curated').length,
       mastered: documentData.words.filter(
         (word) => studyStates[word.word] === 'mastered',
       ).length,
@@ -1032,15 +2196,42 @@ export default function Home() {
   }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
     setImportError('');
     try {
-      const parsed = normalizeDocument(JSON.parse(await file.text()));
-      if (!parsed) {
+      const importResults = await Promise.allSettled(
+        files.map(async (file) => {
+          const document = normalizeDocument(JSON.parse(await file.text()));
+          if (!document) throw new Error('unrecognized vocabulary document');
+          return document;
+        }),
+      );
+      const parsedDocuments = importResults
+        .filter(
+          (result): result is PromiseFulfilledResult<VocabularyDocument> =>
+            result.status === 'fulfilled',
+        )
+        .map((result) => result.value);
+      const skippedCount = importResults.length - parsedDocuments.length;
+
+      if (!parsedDocuments.length) {
         setImportError('未识别到有效词表：需要包含 words 数组和每个词的 word、meaning 字段。');
         return;
       }
+
+      const mergedWords = mergeVocabularyWords(parsedDocuments);
+      const parsed: VocabularyDocument = {
+        words: mergedWords,
+        meta:
+          parsedDocuments.length === 1
+            ? parsedDocuments[0].meta
+            : {
+                source: 'merged-ielts-vocabulary',
+                title: '已合并 ' + parsedDocuments.length + ' 份 IELTS 词表',
+              },
+      };
+
       setDocumentData(parsed);
       const featured =
         parsed.words.find((word) => word.word === 'enhance') || parsed.words[0];
@@ -1048,7 +2239,13 @@ export default function Home() {
       setAdHocAnalysis(null);
       setSearch('');
       setFilter('all');
-      setLookupMessage('已导入 ' + parsed.words.length + ' 个词。');
+      setLookupMessage(
+        '已导入 ' +
+          parsed.words.length +
+          ' 个去重词' +
+          (parsedDocuments.length > 1 ? '，来自 ' + parsedDocuments.length + ' 份 JSON。' : '。') +
+          (skippedCount ? '另有 ' + skippedCount + ' 份无效文件已跳过。' : ''),
+      );
       setShowAnswer(false);
     } catch {
       setImportError('这个文件无法解析为 JSON。请确认它是网站导出的原始词汇文件。');
@@ -1059,11 +2256,12 @@ export default function Home() {
 
   async function handleManualLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const word = manualInput.trim().toLowerCase().replace(/[^a-z-]/g, '');
-    if (!word) {
-      setLookupMessage('请输入一个英文单词。');
+    const rawWord = manualInput.trim();
+    if (!/^[a-z]+(?:-[a-z]+)*$/i.test(rawWord)) {
+      setLookupMessage('请输入单个英文单词；可使用连字符，暂不支持短语或标点。');
       return;
     }
+    const word = rawWord.toLowerCase();
     setManualInput(word);
     const imported = documentData.words.find((item) => item.word === word);
     if (imported) {
@@ -1073,7 +2271,10 @@ export default function Home() {
       return;
     }
 
-    const knownProfile = profileMap[word];
+    const knownProfile =
+      profileMap[word] || curatedOverrides[word]
+        ? profileFor(word, '')
+        : undefined;
     if (knownProfile) {
       setActiveWord(undefined);
       const knownAnalysis = buildAnalysis(
@@ -1156,9 +2357,36 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  function downloadAllAnalyses() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      source: documentData.meta,
+      totalWords: documentData.words.length,
+      analyses: documentData.words.map((word) =>
+        buildAnalysis(
+          word,
+          profileFor(word.word, word.meaning),
+          studyStates[word.word] || 'unseen',
+          sourceTitle,
+          '批量词表导出',
+        ),
+      ),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'ielts-expert-vocabulary-plan.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   const currentStateOption =
     stateOptions.find((option) => option.value === activeState) || stateOptions[0];
   const activeSourceExample = activeAnalysis.sourceWord?.example || '';
+  const activeSourceCount = activeAnalysis.sourceRefs?.length || 0;
 
   return (
     <main className="app-shell">
@@ -1213,6 +2441,7 @@ export default function Home() {
             className="visually-hidden"
             type="file"
             accept="application/json,.json"
+            multiple
             onChange={handleImport}
           />
           {importError ? <p className="feedback error">{importError}</p> : null}
@@ -1224,7 +2453,9 @@ export default function Home() {
         <aside className="hero-scorecard" aria-label="学习状态概览">
           <div className="scorecard-header">
             <span>THIS SET</span>
-            <span className="source-chip">已载入</span>
+            <span className="source-chip">
+              {metrics.curated}/{documentData.words.length} 已审校
+            </span>
           </div>
           <div className="scorecard-title">
             <div>
@@ -1286,13 +2517,22 @@ export default function Home() {
               <span className="section-kicker">VOCABULARY QUEUE</span>
               <h2>本次词表</h2>
             </div>
-            <button
-              type="button"
-              className="import-mini"
-              onClick={() => importRef.current?.click()}
-            >
-              ＋ 导入
-            </button>
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="import-mini"
+                onClick={() => importRef.current?.click()}
+              >
+                ＋ 导入
+              </button>
+              <button
+                type="button"
+                className="import-mini export-all"
+                onClick={downloadAllAnalyses}
+              >
+                ↓ 全表
+              </button>
+            </div>
           </div>
           <div className="library-context">
             <span className="context-dot" />
@@ -1574,6 +2814,9 @@ export default function Home() {
                 <h3>来源与语境边界</h3>
                 <p>
                   来自《{activeAnalysis.sourceTitle}》
+                  {activeSourceCount > 1
+                    ? ' · 收录于 ' + activeSourceCount + ' 份词表'
+                    : ''}
                   {activeAnalysis.occurrenceCount
                     ? ' · 本篇出现 ' + activeAnalysis.occurrenceCount + ' 次'
                     : ''}
@@ -1588,7 +2831,7 @@ export default function Home() {
                 <small>
                   {sourceExampleLabel(activeSourceExample) === '系统泛化例句'
                     ? '此句不是文章原句，因此上方学习建议以通用 IELTS 用法为准。'
-                    : '未上传文章正文时，系统不会把当前分析误标为“本文唯一语境义”。'}
+                    : '这句由导入文件提供；未上传文章正文，无法验证它是否为文章原句或唯一语境义。'}
                 </small>
               </div>
             </section>

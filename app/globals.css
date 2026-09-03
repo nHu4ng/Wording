@@ -571,6 +571,16 @@ a {
   font-weight: 700;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.import-mini.export-all {
+  color: var(--blue);
+}
+
 .library-context {
   overflow: hidden;
   display: flex;
