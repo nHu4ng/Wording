@@ -9,9 +9,17 @@ import {
   useState,
 } from 'react';
 import { extendedCuratedProfiles } from './extended-curated-profiles';
+import {
+  AI_CONFIG_TEMPLATE,
+  AiGeneratedProfile,
+  AiProviderConfig,
+  parseAiProviderConfig,
+  requestAiWordAnalysis,
+} from './ai-client';
 
 type StudyState = 'unseen' | 'seen' | 'recognizes' | 'active' | 'mastered';
-type ProfileQuality = 'curated' | 'dictionary' | 'fallback';
+type ProfileQuality = 'curated' | 'ai' | 'dictionary' | 'fallback';
+type AiConnection = Omit<AiProviderConfig, 'apiKey'>;
 
 type SourceReference = {
   title?: string;
@@ -1779,15 +1787,6 @@ function cleanMeaning(value: string) {
     .trim();
 }
 
-function detectPartOfSpeech(meaning: string) {
-  const tags: string[] = [];
-  if (/\b(?:vt|vi|v)\./i.test(meaning)) tags.push('动词');
-  if (/\bn\./i.test(meaning)) tags.push('名词');
-  if (/\b(?:a|adj)\./i.test(meaning)) tags.push('形容词');
-  if (/\b(?:ad|adv)\./i.test(meaning)) tags.push('副词');
-  return tags.length ? tags.join(' / ') : '词性待核验';
-}
-
 function genericPatterns(word: string, meaning: string) {
   if (/\b(?:vt|vi|v)\./i.test(meaning)) {
     return [word + ' + noun', word + ' + noun + by + -ing', 'be ' + word + 'ed by + noun'];
@@ -1825,7 +1824,6 @@ function genericCollocations(word: string, meaning: string): Collocation[] {
 function fallbackProfile(word: string, originalMeaning: string): ExpertProfile {
   const semanticWeight = Math.min(10, Math.round(word.length / 1.6));
   const value = Math.min(82, 62 + semanticWeight);
-  const pos = detectPartOfSpeech(originalMeaning);
   return {
     quality: 'fallback',
     confidence: 2,
@@ -2045,8 +2043,17 @@ function profileFromDictionary(word: string, entries: DictionaryEntry[]): Expert
   };
 }
 
+function profileFromAi(profile: AiGeneratedProfile): ExpertProfile {
+  return {
+    ...profile,
+    quality: 'ai',
+    confidence: 4,
+  };
+}
+
 function qualityLabel(quality: ProfileQuality) {
   if (quality === 'curated') return '已审校 IELTS 档案';
+  if (quality === 'ai') return 'AI 生成 · 建议核验';
   if (quality === 'dictionary') return '词典补全 · 建议核对';
   return '通用分析 · 待核验';
 }
@@ -2054,6 +2061,9 @@ function qualityLabel(quality: ProfileQuality) {
 function qualityDescription(quality: ProfileQuality) {
   if (quality === 'curated') {
     return '核心义、搭配、易错点和输出建议已按 IELTS 使用场景整理。';
+  }
+  if (quality === 'ai') {
+    return '由你导入的 AI 接口生成；适合做学习起点，但不等同于官方 IELTS 词频、真题出处或人工审校结论。';
   }
   if (quality === 'dictionary') {
     return '英文释义来自在线词典；考试适配度与搭配为学习建议，不等同于真题频率。';
@@ -2080,13 +2090,22 @@ export default function Home() {
   const [importError, setImportError] = useState('');
   const [lookupMessage, setLookupMessage] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [aiConnection, setAiConnection] = useState<AiConnection | null>(null);
+  const [aiConfigError, setAiConfigError] = useState('');
+  const [aiConfigMessage, setAiConfigMessage] = useState('');
   const [showAnswer, setShowAnswer] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const aiConfigFileRef = useRef<HTMLInputElement>(null);
+  const aiRuntimeConfigRef = useRef<AiProviderConfig | null>(null);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem('ielts-vocab-study-states');
-      if (stored) setStudyStates(JSON.parse(stored) as Record<string, StudyState>);
+      if (stored) {
+        const savedStates = JSON.parse(stored) as Record<string, StudyState>;
+        const restoreTimer = window.setTimeout(() => setStudyStates(savedStates), 0);
+        return () => window.clearTimeout(restoreTimer);
+      }
     } catch {
       // Local progress is optional; the learning surface still works without it.
     }
@@ -2254,10 +2273,55 @@ export default function Home() {
     }
   }
 
+  async function handleAiConfigImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAiConfigError('');
+    try {
+      if (file.size > 16 * 1024) {
+        throw new Error('配置文件不能超过 16 KB。');
+      }
+      const importedConfig = parseAiProviderConfig(JSON.parse(await file.text()));
+      const { apiKey: ignoredApiKey, ...connection } = importedConfig;
+      void ignoredApiKey;
+      aiRuntimeConfigRef.current = importedConfig;
+      setAiConnection(connection);
+      setAiConfigMessage(
+        '已就绪：' +
+          importedConfig.name +
+          ' · ' +
+          importedConfig.model +
+          '。配置仅保留在本次页面会话中，刷新后需重新导入。',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '配置文件无法读取。';
+      setAiConfigError('未导入：' + message);
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  function clearAiConfig() {
+    aiRuntimeConfigRef.current = null;
+    setAiConnection(null);
+    setAiConfigError('');
+    setAiConfigMessage('已从当前页面清除 AI 配置。');
+  }
+
+  function downloadAiConfigTemplate() {
+    const blob = new Blob([AI_CONFIG_TEMPLATE], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'lexiwise-ai-config.template.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleManualLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const rawWord = manualInput.trim();
-    if (!/^[a-z]+(?:-[a-z]+)*$/i.test(rawWord)) {
+    if (rawWord.length > 64 || !/^[a-z]+(?:-[a-z]+)*$/i.test(rawWord)) {
       setLookupMessage('请输入单个英文单词；可使用连字符，暂不支持短语或标点。');
       return;
     }
@@ -2307,6 +2371,34 @@ export default function Home() {
     setShowAnswer(false);
     document.getElementById('analysis-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+    let aiFailureMessage = '';
+    const runtimeAiConfig = aiRuntimeConfigRef.current;
+    if (runtimeAiConfig) {
+      setLookupMessage('正在通过 ' + runtimeAiConfig.name + ' 生成 IELTS 专家分析…');
+      try {
+        const generatedProfile = profileFromAi(
+          await requestAiWordAnalysis(runtimeAiConfig, word),
+        );
+        const completed = buildAnalysis(
+          undefined,
+          generatedProfile,
+          'unseen',
+          undefined,
+          '单词查询 · AI 接口 · ' + runtimeAiConfig.name,
+        );
+        completed.word = word;
+        setAdHocAnalysis(completed);
+        setLookupMessage(
+          '已由 AI 接口生成完整学习档案。请结合原文确认具体语境，不把其中的学习分数当作官方 IELTS 频率。',
+        );
+        return;
+      } catch (error) {
+        aiFailureMessage =
+          error instanceof Error ? error.message : 'AI 接口未能完成分析。';
+        setLookupMessage('AI 接口未完成，正在改用在线词典补全基础信息…');
+      }
+    }
+
     try {
       const response = await fetch(
         'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word),
@@ -2323,9 +2415,17 @@ export default function Home() {
       );
       completed.word = word;
       setAdHocAnalysis(completed);
-      setLookupMessage('已补全英文释义与发音。IELTS 适配建议仍标注为待核验。');
+      setLookupMessage(
+        aiFailureMessage
+          ? 'AI 接口未完成：' + aiFailureMessage + ' 已改用在线词典补全英文释义与发音。'
+          : '已补全英文释义与发音。IELTS 适配建议仍标注为待核验。',
+      );
     } catch {
-      setLookupMessage('暂时无法连接在线词典，已保留一份待核验学习档案。');
+      setLookupMessage(
+        aiFailureMessage
+          ? 'AI 接口未完成：' + aiFailureMessage + ' 在线词典也暂时不可用，已保留待核验学习档案。'
+          : '暂时无法连接在线词典，已保留一份待核验学习档案。',
+      );
     } finally {
       setIsLookingUp(false);
     }
@@ -2400,6 +2500,7 @@ export default function Home() {
         </a>
         <nav className="topnav" aria-label="主导航">
           <a href="#library">词表工作台</a>
+          <a href="#ai-connection">AI 接口</a>
           <a href="#analysis-panel">专家档案</a>
           <a href="#how-it-works">分析标准</a>
         </nav>
@@ -2434,6 +2535,9 @@ export default function Home() {
             </button>
             <a className="text-link" href="#analysis-panel">
               查看专家档案 <span>↓</span>
+            </a>
+            <a className="text-link" href="#ai-connection">
+              配置 AI 接口 <span>↓</span>
             </a>
           </div>
           <input
@@ -2505,9 +2609,79 @@ export default function Home() {
             autoComplete="off"
           />
           <button className="dark-button" type="submit" disabled={isLookingUp}>
-            {isLookingUp ? '核对中…' : '深度分析'}
+            {isLookingUp ? '生成中…' : aiConnection ? 'AI 深度分析' : '深度分析'}
           </button>
         </form>
+      </section>
+
+      <section className="ai-connection" id="ai-connection" aria-label="AI 接口配置">
+        <div className="ai-connection-heading">
+          <span className="section-kicker">BRING YOUR OWN AI</span>
+          <h2>导入你的 AI 配置，让新词也能获得完整分析。</h2>
+          <p>
+            配置文件只在当前浏览器内存中读取，不上传到本站、不写入 GitHub；刷新页面后会自动清除。
+          </p>
+        </div>
+        <div className="ai-connection-actions">
+          <div className={aiConnection ? 'ai-config-status ready' : 'ai-config-status'}>
+            <i />
+            <div>
+              <strong>{aiConnection ? '本次会话已连接' : '尚未导入配置'}</strong>
+              <span>
+                {aiConnection
+                  ? aiConnection.name + ' · ' + aiConnection.model + ' · ' + aiConnection.protocol
+                  : '导入后，未收录单词将优先调用你的 AI 接口。'}
+              </span>
+            </div>
+          </div>
+          <div className="ai-config-buttons">
+            <button
+              type="button"
+              className="dark-button"
+              onClick={() => aiConfigFileRef.current?.click()}
+            >
+              {aiConnection ? '更换配置' : '导入 AI 配置'}
+            </button>
+            <button type="button" className="config-button" onClick={downloadAiConfigTemplate}>
+              ↓ 下载模板
+            </button>
+            {aiConnection ? (
+              <button type="button" className="config-button danger" onClick={clearAiConfig}>
+                清除配置
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <input
+          ref={aiConfigFileRef}
+          className="visually-hidden"
+          type="file"
+          accept="application/json,.json"
+          onChange={handleAiConfigImport}
+        />
+        {aiConfigError ? <p className="config-feedback error">{aiConfigError}</p> : null}
+        {!aiConfigError && aiConfigMessage ? (
+          <p className="config-feedback success">{aiConfigMessage}</p>
+        ) : null}
+        <details className="config-format">
+          <summary>查看配置文件格式与使用说明</summary>
+          <div className="config-format-body">
+            <pre>{AI_CONFIG_TEMPLATE}</pre>
+            <div>
+              <p>
+                <code>endpoint</code> 请填完整接口地址；<code>responses</code> 对应 Responses 协议，
+                <code>chat-completions</code> 对应兼容 Chat Completions 的接口。
+              </p>
+              <p>
+                接口必须允许浏览器跨域访问（CORS）。密钥不会保存，但会以 Bearer 凭据发送到配置中指定的接口地址。
+              </p>
+              <p>
+                为保护官方项目密钥，请填自己的兼容接口或安全代理地址，不要浏览器直连官方 OpenAI 地址。
+              </p>
+              <p>请只导入自己信任的配置文件；不要把含真实密钥的配置上传到 GitHub 或分享给他人。</p>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section className="workbench" id="library">
