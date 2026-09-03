@@ -1,19 +1,23 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
+const siteUrl = 'https://lexiwise-ielts-vocab-lab.terryhu4ng.chatgpt.site';
+
 export const metadata: Metadata = {
   title: 'Lexiwise · IELTS 词汇专家档案',
   description:
     '将 IELTS 练习词表转换为可用于阅读、写作和口语的深度词汇学习档案。',
+  metadataBase: new URL(siteUrl),
   openGraph: {
     title: 'Lexiwise · IELTS 词汇专家档案',
     description:
       '将 IELTS 练习 JSON 词表转为可信度明确、可用于阅读、写作和口语的专家学习档案。',
     siteName: 'Lexiwise IELTS Vocab Lab',
     type: 'website',
+    url: siteUrl,
     images: [
       {
-        url: '/og.png',
+        url: siteUrl + '/og.png',
         width: 1730,
         height: 909,
         alt: 'Lexiwise IELTS Vocab Lab',
@@ -24,7 +28,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Lexiwise · IELTS 词汇专家档案',
     description: '从词汇列表到真实输出。',
-    images: ['/og.png'],
+    images: [siteUrl + '/og.png'],
   },
 };
 
