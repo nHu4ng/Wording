@@ -777,6 +777,138 @@ a {
   background: var(--yellow);
 }
 
+.review-folder {
+  margin-top: 15px;
+  border: 1px solid #d8d3ca;
+  background: #fffefb;
+}
+
+.review-folder summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.review-folder summary::-webkit-details-marker {
+  display: none;
+}
+
+.review-folder summary span {
+  display: grid;
+  gap: 2px;
+}
+
+.review-folder summary small {
+  color: #84827c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.review-folder summary strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.review-folder summary b {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eee9de;
+  color: var(--red);
+  font-size: 12px;
+}
+
+.review-folder-note,
+.review-folder-empty {
+  margin: 0;
+  padding: 0 11px 10px;
+  color: #747a7d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.review-open {
+  width: calc(100% - 22px);
+  margin: 0 11px 9px;
+  padding: 8px;
+  border: 1px solid #cec6b9;
+  background: #f7f2e9;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.review-open:hover {
+  border-color: var(--yellow);
+  background: #fff8dd;
+}
+
+.review-file-list {
+  max-height: 174px;
+  overflow-y: auto;
+  border-top: 1px solid #e4ded4;
+}
+
+.review-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 9px 11px;
+  border-bottom: 1px solid #eee9e1;
+}
+
+.review-file:last-child {
+  border-bottom: 0;
+}
+
+.review-file > div:first-child {
+  min-width: 0;
+}
+
+.review-file strong,
+.review-file small {
+  display: block;
+}
+
+.review-file strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-file small {
+  margin-top: 3px;
+  color: #84827c;
+  font-size: 11px;
+}
+
+.review-file-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.review-file-actions button {
+  padding: 0;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.review-file-actions button:last-child {
+  color: var(--red);
+}
+
 .filter-search {
   display: flex;
   align-items: center;

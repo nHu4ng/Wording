@@ -16,6 +16,12 @@ import {
   parseAiProviderConfig,
   requestAiWordAnalysis,
 } from './ai-client';
+import {
+  appendReviewFolderEntries,
+  listReviewFolderEntries,
+  removeReviewFolderEntry,
+  ReviewFolderEntry,
+} from './review-folder';
 
 type StudyState = 'unseen' | 'seen' | 'recognizes' | 'active' | 'mastered';
 type ProfileQuality = 'curated' | 'ai' | 'dictionary' | 'fallback';
@@ -51,6 +57,8 @@ type VocabularyDocument = {
   words: VocabularyWord[];
   meta?: VocabularyMeta;
 };
+
+type ReviewFile = ReviewFolderEntry<VocabularyDocument>;
 
 type SkillScores = {
   reading: number;
@@ -2003,6 +2011,38 @@ function mergeVocabularyWords(documents: VocabularyDocument[]) {
   return Array.from(merged.values());
 }
 
+function documentFromReviewFolder(entries: ReviewFile[]): VocabularyDocument {
+  const documents = entries.map((entry) => entry.document);
+  return {
+    words: mergeVocabularyWords(documents),
+    meta:
+      documents.length === 1
+        ? documents[0].meta
+        : {
+            source: 'review-folder',
+            title: '复习文件夹 · ' + documents.length + ' 份 JSON',
+          },
+  };
+}
+
+function reviewFileId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'review-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
+function formatImportedAt(importedAt: string) {
+  const date = new Date(importedAt);
+  if (Number.isNaN(date.getTime())) return '导入时间未知';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 function profileFromDictionary(word: string, entries: DictionaryEntry[]): ExpertProfile {
   const entry = entries[0];
   const meanings = entry?.meanings || [];
@@ -2089,6 +2129,8 @@ export default function Home() {
   const [manualInput, setManualInput] = useState('');
   const [importError, setImportError] = useState('');
   const [lookupMessage, setLookupMessage] = useState('');
+  const [reviewFiles, setReviewFiles] = useState<ReviewFile[]>([]);
+  const [isReviewFolderLoading, setIsReviewFolderLoading] = useState(true);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [aiConnection, setAiConnection] = useState<AiConnection | null>(null);
   const [aiConfigError, setAiConfigError] = useState('');
@@ -2109,6 +2151,45 @@ export default function Home() {
     } catch {
       // Local progress is optional; the learning surface still works without it.
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreReviewFolder() {
+      try {
+        const entries = await listReviewFolderEntries<VocabularyDocument>();
+        if (cancelled) return;
+        const restoreTimer = window.setTimeout(() => {
+          if (cancelled) return;
+          setReviewFiles(entries);
+          if (entries.length) {
+            const restoredDocument = documentFromReviewFolder(entries);
+            setDocumentData(restoredDocument);
+            setActiveWord(restoredDocument.words[0]);
+            setLookupMessage(
+              '已从复习文件夹恢复 ' + entries.length + ' 份 JSON，共 ' + restoredDocument.words.length + ' 个去重词。',
+            );
+          }
+          setIsReviewFolderLoading(false);
+        }, 0);
+        return () => window.clearTimeout(restoreTimer);
+      } catch {
+        if (!cancelled) {
+          window.setTimeout(() => {
+            if (!cancelled) {
+              setIsReviewFolderLoading(false);
+              setImportError('复习文件夹无法在当前浏览器保存；你仍可查看示例词表。');
+            }
+          }, 0);
+        }
+      }
+    }
+
+    void restoreReviewFolder();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -2218,39 +2299,51 @@ export default function Home() {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
     setImportError('');
+    if (isReviewFolderLoading) {
+      setImportError('复习文件夹正在恢复，请稍后再试。');
+      event.target.value = '';
+      return;
+    }
     try {
       const importResults = await Promise.allSettled(
         files.map(async (file) => {
-          const document = normalizeDocument(JSON.parse(await file.text()));
+          const rawJson = await file.text();
+          const document = normalizeDocument(JSON.parse(rawJson));
           if (!document) throw new Error('unrecognized vocabulary document');
-          return document;
+          return { document, name: file.name, rawJson };
         }),
       );
-      const parsedDocuments = importResults
+      const parsedFiles = importResults
         .filter(
-          (result): result is PromiseFulfilledResult<VocabularyDocument> =>
+          (
+            result,
+          ): result is PromiseFulfilledResult<{
+            document: VocabularyDocument;
+            name: string;
+            rawJson: string;
+          }> =>
             result.status === 'fulfilled',
         )
         .map((result) => result.value);
-      const skippedCount = importResults.length - parsedDocuments.length;
+      const skippedCount = importResults.length - parsedFiles.length;
 
-      if (!parsedDocuments.length) {
+      if (!parsedFiles.length) {
         setImportError('未识别到有效词表：需要包含 words 数组和每个词的 word、meaning 字段。');
         return;
       }
 
-      const mergedWords = mergeVocabularyWords(parsedDocuments);
-      const parsed: VocabularyDocument = {
-        words: mergedWords,
-        meta:
-          parsedDocuments.length === 1
-            ? parsedDocuments[0].meta
-            : {
-                source: 'merged-ielts-vocabulary',
-                title: '已合并 ' + parsedDocuments.length + ' 份 IELTS 词表',
-              },
-      };
+      const newEntries: ReviewFile[] = parsedFiles.map((file) => ({
+        id: reviewFileId(),
+        name: file.name,
+        importedAt: new Date().toISOString(),
+        rawJson: file.rawJson,
+        document: file.document,
+      }));
+      await appendReviewFolderEntries(newEntries);
+      const nextReviewFiles = [...reviewFiles, ...newEntries];
+      const parsed = documentFromReviewFolder(nextReviewFiles);
 
+      setReviewFiles(nextReviewFiles);
       setDocumentData(parsed);
       const featured =
         parsed.words.find((word) => word.word === 'enhance') || parsed.words[0];
@@ -2259,15 +2352,18 @@ export default function Home() {
       setSearch('');
       setFilter('all');
       setLookupMessage(
-        '已导入 ' +
+        '已追加 ' +
+          newEntries.length +
+          ' 份 JSON 到复习文件夹；当前共 ' +
           parsed.words.length +
-          ' 个去重词' +
-          (parsedDocuments.length > 1 ? '，来自 ' + parsedDocuments.length + ' 份 JSON。' : '。') +
+          ' 个去重词、' +
+          nextReviewFiles.length +
+          ' 份文件。' +
           (skippedCount ? '另有 ' + skippedCount + ' 份无效文件已跳过。' : ''),
       );
       setShowAnswer(false);
     } catch {
-      setImportError('这个文件无法解析为 JSON。请确认它是网站导出的原始词汇文件。');
+      setImportError('无法写入复习文件夹。请确认浏览器允许本站保存本地数据后重试。');
     } finally {
       event.target.value = '';
     }
@@ -2435,8 +2531,67 @@ export default function Home() {
     setDocumentData(demoVocabulary);
     setActiveWord(demoVocabulary.words[11]);
     setAdHocAnalysis(null);
-    setLookupMessage('已恢复示例词表。');
+    setLookupMessage(
+      reviewFiles.length
+        ? '已打开示例词表；复习文件夹仍保留 ' + reviewFiles.length + ' 份 JSON。'
+        : '已恢复示例词表。',
+    );
     setShowAnswer(false);
+  }
+
+  function openReviewFolder() {
+    if (!reviewFiles.length) {
+      setLookupMessage('复习文件夹还是空的；导入 JSON 后会自动在这里留档。');
+      return;
+    }
+    const reviewDocument = documentFromReviewFolder(reviewFiles);
+    setDocumentData(reviewDocument);
+    setActiveWord(reviewDocument.words[0]);
+    setAdHocAnalysis(null);
+    setSearch('');
+    setFilter('all');
+    setLookupMessage(
+      '已打开复习文件夹：' + reviewFiles.length + ' 份 JSON，' + reviewDocument.words.length + ' 个去重词。',
+    );
+    setShowAnswer(false);
+  }
+
+  function downloadReviewFile(reviewFile: ReviewFile) {
+    const blob = new Blob([reviewFile.rawJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = reviewFile.name;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function removeReviewFile(reviewFile: ReviewFile) {
+    if (!window.confirm('从复习文件夹移除“' + reviewFile.name + '”？这不会删除你电脑上的原始 JSON 文件。')) {
+      return;
+    }
+    try {
+      await removeReviewFolderEntry(reviewFile.id);
+      const nextReviewFiles = reviewFiles.filter((entry) => entry.id !== reviewFile.id);
+      setReviewFiles(nextReviewFiles);
+      if (nextReviewFiles.length) {
+        const nextDocument = documentFromReviewFolder(nextReviewFiles);
+        setDocumentData(nextDocument);
+        setActiveWord(nextDocument.words[0]);
+      } else {
+        setDocumentData(demoVocabulary);
+        setActiveWord(demoVocabulary.words[11]);
+      }
+      setAdHocAnalysis(null);
+      setLookupMessage(
+        nextReviewFiles.length
+          ? '已从复习文件夹移除该文件；剩余 ' + nextReviewFiles.length + ' 份 JSON。'
+          : '复习文件夹已清空，已回到示例词表。',
+      );
+      setShowAnswer(false);
+    } catch {
+      setImportError('无法从复习文件夹移除该文件，请稍后重试。');
+    }
   }
 
   function downloadAnalysis() {
@@ -2521,7 +2676,7 @@ export default function Home() {
             你的表达。
           </h1>
           <p>
-            导入练习网站导出的 JSON，得到按 IELTS 阅读、写作和口语场景组织的词汇档案。
+            追加导入练习网站导出的 JSON，并在复习文件夹中留档，得到按 IELTS 阅读、写作和口语场景组织的词汇档案。
             也可以随时查询一个新词，并看见分析的可信度边界。
           </p>
           <div className="hero-actions">
@@ -2530,7 +2685,7 @@ export default function Home() {
               type="button"
               onClick={() => importRef.current?.click()}
             >
-              导入我的词汇 JSON
+              追加我的词汇 JSON
               <span>→</span>
             </button>
             <a className="text-link" href="#analysis-panel">
@@ -2697,7 +2852,7 @@ export default function Home() {
                 className="import-mini"
                 onClick={() => importRef.current?.click()}
               >
-                ＋ 导入
+                ＋ 追加
               </button>
               <button
                 type="button"
@@ -2712,6 +2867,55 @@ export default function Home() {
             <span className="context-dot" />
             {sourceTitle}
           </div>
+          <details className="review-folder" open={reviewFiles.length > 0}>
+            <summary>
+              <span>
+                <small>REVIEW FOLDER</small>
+                <strong>复习文件夹</strong>
+              </span>
+              <b>{isReviewFolderLoading ? '…' : reviewFiles.length}</b>
+            </summary>
+            <p className="review-folder-note">
+              已保存在本机浏览器；只复制留档，不会移动或删除原始 JSON。
+            </p>
+            {reviewFiles.length ? (
+              <>
+                <button type="button" className="review-open" onClick={openReviewFolder}>
+                  打开全部复习词表
+                </button>
+                <div className="review-file-list">
+                  {reviewFiles.map((reviewFile) => (
+                    <article className="review-file" key={reviewFile.id}>
+                      <div>
+                        <strong title={reviewFile.name}>{reviewFile.name}</strong>
+                        <small>
+                          {reviewFile.document.words.length} 词 · {formatImportedAt(reviewFile.importedAt)}
+                        </small>
+                      </div>
+                      <div className="review-file-actions">
+                        <button
+                          type="button"
+                          onClick={() => downloadReviewFile(reviewFile)}
+                          aria-label={'下载 ' + reviewFile.name}
+                        >
+                          下载
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeReviewFile(reviewFile)}
+                          aria-label={'从复习文件夹移除 ' + reviewFile.name}
+                        >
+                          移除
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="review-folder-empty">导入后会在这里逐份追加保存。</p>
+            )}
+          </details>
           <label className="filter-search">
             <span aria-hidden="true">⌕</span>
             <input
